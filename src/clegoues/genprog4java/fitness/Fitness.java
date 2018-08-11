@@ -592,6 +592,7 @@ public class Fitness {
 
 		double avgEntropy = 0;
 
+		/*
 		if(rep.getVariantFolder().length() != 0) {
 			try {
 				rep.rewriteOriginal();
@@ -600,6 +601,7 @@ public class Fitness {
 				e.printStackTrace();
 			}
 		}
+		*/
 
 		double sampleFitness = fac * numNegPassed + numPosPassed + (1 - avgEntropy / 1000);
 		double totalFitness = sampleFitness + numRestPassed;
@@ -651,6 +653,7 @@ public class Fitness {
 
 		double avgEntropy = 0;
 
+		/*
 		if(rep.getVariantFolder().length() != 0) {
 			try {
 				rep.rewriteOriginal();
@@ -659,6 +662,7 @@ public class Fitness {
 				e.printStackTrace();
 			}
 		}
+		*/
 
 		fitness += 1 - avgEntropy / 1000;
 		
