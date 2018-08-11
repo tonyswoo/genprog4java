@@ -120,11 +120,15 @@ Comparable<Representation<G>> {
 
 	public abstract void fromSource(ClassInfo base) throws IOException;
 
+	public abstract void rewriteOriginal();
+
 	public abstract void outputSource(String filename);
 
 	public abstract void cleanup();
 
 	public abstract double getFitness();
+
+	public abstract boolean compileFailed();
 
 	public abstract boolean compile(String sourceName, String exeName);
 

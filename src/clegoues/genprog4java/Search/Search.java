@@ -217,11 +217,12 @@ public abstract class Search<G extends EditOperation> {
 			int generation) {
 
 		logger.info("\nRepair Found: " + rep.getName() + " (in " + rep.getVariantFolder() + ")\n");
-		File repairDir = new File("repair/");
+		if(rep.getVariantFolder().length() == 0)
+			return;
+		File repairDir = new File(Configuration.outputDir + "/" + "repair" + rep.getVariantFolder().substring(7) + "/");
 		if (!repairDir.exists())
 			repairDir.mkdir();
-		String repairFilename = "repair/repair."
-				+ Configuration.globalExtension;
+		String repairFilename = Configuration.outputDir + "/" + "repair" + rep.getVariantFolder().substring(7) + "/";
 		rep.outputSource(repairFilename);
 	}
 

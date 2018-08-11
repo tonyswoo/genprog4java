@@ -38,6 +38,7 @@ import static clegoues.util.ConfigurationBuilder.DOUBLE;
 import static clegoues.util.ConfigurationBuilder.STRING;
 
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -53,14 +54,18 @@ import java.lang.reflect.Modifier;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.DoubleSummaryStatistics;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.log4j.Logger;
@@ -74,6 +79,16 @@ import clegoues.genprog4java.rep.Representation;
 import clegoues.util.ConfigurationBuilder;
 import junit.framework.Test;
 import junit.framework.TestSuite;
+import slp.core.io.Reader;
+import slp.core.lexing.code.JavaLexer;
+import slp.core.lexing.runners.LexerRunner;
+import slp.core.modeling.Model;
+import slp.core.modeling.dynamic.CacheModel;
+import slp.core.modeling.misc.ReverseModel;
+import slp.core.modeling.mix.MixModel;
+import slp.core.modeling.ngram.JMModel;
+import slp.core.modeling.runners.ModelRunner;
+import slp.core.translating.Vocabulary;
 
 /**
  * This class manages fitness evaluation for a variant of an arbitrary {@link clegoues.genprog4java.rep.Representation}.
@@ -223,6 +238,10 @@ public class Fitness {
 		//System.out.println("hashmap is = " + testCache.entrySet().size() + "  " + testCache.toString());
 		fitnessCache.putAll(testCache);
 	}
+	
+	private LexerRunner lexerRunner;
+	private ModelRunner runner;
+	
 	/**
 	 * Loads the tests from specified files, initializes the sample vars to not be null.
 	 * Samples properly when the search actually begins.
@@ -258,6 +277,12 @@ public class Fitness {
 		testSample = new ArrayList<TestCase>(Fitness.positiveTests);
 		restSample = new ArrayList<TestCase>();
 		Fitness.deserializeTestCache();
+		
+		lexerRunner = new LexerRunner(new JavaLexer(), false);
+		lexerRunner.setExtension("java");
+		Model model = MixModel.standard(MixModel.standard(new JMModel(), new CacheModel()), new ReverseModel(MixModel.standard(new JMModel(), new CacheModel())));
+		runner = new ModelRunner(model, lexerRunner, new Vocabulary());
+		runner.learnDirectory(new File(Configuration.sourceDir));
 
 		}
 
@@ -564,8 +589,39 @@ public class Fitness {
 				numRestPassed = this.testPassCount(rep, false, Fitness.restSample);
 			}
 		}
-		double sampleFitness = fac * numNegPassed + numPosPassed;
+
+		double avgEntropy = 0;
+
+		if(rep.getVariantFolder().length() != 0) {
+			try {
+				rep.rewriteOriginal();
+				avgEntropy = processVariant(new File(Configuration.outputDir + "/" + rep.getVariantFolder()), new File(Configuration.sourceDir), lexerRunner, runner);
+			} catch(IOException e) {
+				e.printStackTrace();
+			}
+		}
+
+		double sampleFitness = fac * numNegPassed + numPosPassed + (1 - avgEntropy / 1000);
 		double totalFitness = sampleFitness + numRestPassed;
+
+		if(rep.getVariantFolder().length() != 0) {
+			try {
+				File testlog = new File(Configuration.outputDir + "/" + "test.log");
+				if(!testlog.exists())
+					testlog.createNewFile();
+				BufferedWriter bw = new BufferedWriter(new FileWriter(testlog, true));
+				
+				if(rep.compileFailed())
+					bw.append(rep.getVariantFolder() + " " + "-1" + " " + avgEntropy + " " + totalFitness);
+				else
+					bw.append(rep.getVariantFolder() + " " + (numNegPassed + numPosPassed + numRestPassed) + " " + avgEntropy + " " + totalFitness);
+				bw.newLine();
+				bw.close();
+			} catch(Exception e) {
+				e.printStackTrace();			
+			}
+		}
+
 		return Pair.of(totalFitness,sampleFitness);
 	}
 
@@ -578,16 +634,52 @@ public class Fitness {
 	private Pair<Double, Double> testFitnessFull(Representation rep,
 			double fac) {
 		double fitness = 0.0;
+		int numNegPassed = 0;
+		int numPosPassed = 0;
 		for (TestCase thisTest : Fitness.positiveTests) {
 			if (singleTestCasePass(rep, thisTest)) {
 				fitness += 1.0;
+				numPosPassed++;
 			}
 		}
 		for (TestCase thisTest : Fitness.negativeTests) {
 			if (singleTestCasePass(rep, thisTest)) {
 				fitness += fac;
+				numNegPassed++;
 			}
 		}
+
+		double avgEntropy = 0;
+
+		if(rep.getVariantFolder().length() != 0) {
+			try {
+				rep.rewriteOriginal();
+				avgEntropy = processVariant(new File(Configuration.outputDir + "/" + rep.getVariantFolder()), new File(Configuration.sourceDir), lexerRunner, runner);
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		}
+
+		fitness += 1 - avgEntropy / 1000;
+		
+		if(rep.getVariantFolder().length() != 0) {
+			try {
+				File testlog = new File(Configuration.outputDir + "/" + "test.log");
+				if(!testlog.exists())
+					testlog.createNewFile();
+				BufferedWriter bw = new BufferedWriter(new FileWriter(testlog, true));
+			
+				if(rep.compileFailed())
+					bw.append(rep.getVariantFolder() + " " + "-1" + " " + avgEntropy + " " + fitness);
+				else
+					bw.append(rep.getVariantFolder() + " " + (numNegPassed + numPosPassed) + " " + avgEntropy + " " + fitness);
+				bw.newLine();
+				bw.close();
+			} catch(Exception e) { 
+				e.printStackTrace();
+			}
+		}
+
 		return  Pair.of(fitness, fitness);
 	}
 
@@ -658,6 +750,90 @@ public class Fitness {
 			printer.println(s);
 		}
 		printer.close();
+	}
+	
+	private static double processVariant(File variant, File d4jSrcRoot, LexerRunner lexerRunner, ModelRunner runner) throws IOException {
+		List<File> changedFiles = Files.walk(variant.toPath())
+			.map(Path::toFile)
+			.filter(File::isFile)
+			.filter(file -> file.getName().endsWith(".diff"))
+			.collect(Collectors.toList());
+		int tokensAdd = 0;
+		double entropyAdd = 0.0;
+		for (File diffFile : changedFiles) {
+			List<String> diff = Reader.readLines(diffFile);
+			if (diff.isEmpty()) {
+				continue;
+			}
+			File pathInD4J = new File(d4jSrcRoot, diffFile.getAbsolutePath()
+					.substring(0, diffFile.getAbsolutePath().length() - 5)
+					.substring(variant.getAbsolutePath().length()));
+			List<String> originalContent = Reader.readLines(pathInD4J);
+			runner.forgetFile(pathInD4J);
+			DoubleSummaryStatistics stats = processDiff(diff, originalContent, lexerRunner, runner);
+			runner.learnFile(pathInD4J);
+			tokensAdd += stats.getCount();
+			entropyAdd += stats.getSum();
+		}
+		double avgEntropy = tokensAdd > 0 ? entropyAdd / tokensAdd : 0.0;
+		return avgEntropy;
+	}
+	
+	private static DoubleSummaryStatistics processDiff(List<String> diff, List<String> original,
+				LexerRunner lexerRunner, ModelRunner runner) {
+		List<String> afterUpdate = new ArrayList<>(original);
+		List<Integer> added = new ArrayList<>();
+		int cIx = 0;
+		int lineNumChange = 0; // denotes the change in line indices due to edit operation
+		while (cIx < diff.size()) {
+			String diffIndicator = diff.get(cIx);
+			int startDel, endDel, startAdd, endAdd;
+			if (diffIndicator.contains("d")) {
+				String indices = diffIndicator.split("d")[0];
+				startDel = Integer.parseInt(indices.contains(",") ? indices.split(",")[0] : indices) + lineNumChange - 1;
+				endDel = Integer.parseInt(indices.contains(",") ? indices.split(",")[1] : indices) + lineNumChange - 1;
+				lineNumChange -= endDel - startDel + 1;
+				startAdd = endAdd = -1;
+			}
+			else if (diffIndicator.contains("a")) {
+				String indices = diffIndicator.split("a")[1];
+				startAdd = Integer.parseInt(indices.contains(",") ? indices.split(",")[0] : indices) + lineNumChange - 1;
+				endAdd = Integer.parseInt(indices.contains(",") ? indices.split(",")[1] : indices) + lineNumChange - 1;
+				lineNumChange += endAdd - startAdd + 1;
+				startDel = endDel = -1;
+			}
+			else {
+				String[] indices = diffIndicator.split("c");
+				// Get diff indices -- note the "- 1" at the end for proper list offsets!
+				startDel = Integer.parseInt(indices[0].contains(",") ? indices[0].split(",")[0] : indices[0]) + lineNumChange - 1;
+				endDel = Integer.parseInt(indices[0].contains(",") ? indices[0].split(",")[1] : indices[0]) + lineNumChange - 1;
+				startAdd = Integer.parseInt(indices[1].contains(",") ? indices[1].split(",")[0] : indices[1]) - 1;
+				endAdd = Integer.parseInt(indices[1].contains(",") ? indices[1].split(",")[1] : indices[1]) - 1;
+				lineNumChange += endAdd - startAdd - (endDel - startDel);
+			}
+			int offset = cIx + 1;
+			if (startDel >= 0) {
+				for (int i = 0; i < endDel - startDel + 1; i++) {
+					afterUpdate.remove(startDel);
+				}
+				offset += endDel - startDel + 1;
+			}
+			if (startAdd >= 0) {
+				if (startDel >= 0) offset += 1;
+				for (int i = 0; i < endAdd - startAdd + 1; i++) {
+					String toAdd = diff.get(offset + i);
+					afterUpdate.add(startAdd + i, toAdd.substring(1));
+					added.add(startAdd + i);
+				}
+				offset += endAdd - startAdd + 1;
+			}
+			cIx = offset;
+	
+		}
+		// Run model on modified tokens and compute entropy of effective diff
+		runner.getModel().notify(null);
+		List<List<Double>> after = runner.modelContent(afterUpdate.stream().collect(Collectors.joining("\n")));
+		return runner.getStats(added.stream().map(ix -> after.get(ix)).collect(Collectors.toList()));
 	}
 
 }

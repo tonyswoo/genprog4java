@@ -113,5 +113,10 @@
   	<artifactId>junit4-runner</artifactId>
   	<version>5.0.0-ALPHA</version>
   </dependency>
+  <dependency>
+  	<groupId>SLP</groupId>
+  	<artifactId>SLP_Core</artifactId>
+  	<version>0.3</version>
+  </dependency>
   </dependencies>
 </project>

@@ -56,6 +56,7 @@ import javax.tools.ToolProvider;
 
 import org.apache.commons.exec.CommandLine;
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.log4j.Logger;
 import org.eclipse.jdt.core.dom.AST;
@@ -273,8 +274,131 @@ CachingRepresentation<JavaEditOperation> {
 	}
 
 	@Override
+	public void rewriteOriginal() {
+
+		Map<ClassInfo, String> source = this.getOriginalSource();
+
+		try {
+			for (Map.Entry<ClassInfo, String> ele : source.entrySet()) {
+				ClassInfo ci = ele.getKey();
+				String program = ele.getValue();
+				String pathToFile = ci.pathToJavaFile();
+
+				BufferedWriter bw = new BufferedWriter(new FileWriter(Configuration.sourceDir 
+					+ File.separatorChar + pathToFile));
+				bw.write(program);
+				bw.flush();
+				bw.close();
+			}
+		} catch(IOException e) {
+			e.printStackTrace();
+
+		}
+
+/*
+		List<Pair<ClassInfo, String>> sourceBuffers = this.computeSourceBuffers();
+		if (sourceBuffers == null) {
+			return;
+		}
+
+		try {
+			for (Pair<ClassInfo, String> ele : sourceBuffers) {
+				ClassInfo ci = ele.getLeft();
+				String program = ele.getRight();
+				String pathToFile = ci.pathToJavaFile();
+
+				BufferedWriter bw = new BufferedWriter(new FileWriter(Configuration.sourceDir
+					+ File.separatorChar + pathToFile));
+				bw.write(program);
+				bw.flush();
+
+				bw.close();
+			}
+		} catch(IOException e) {
+			e.printStackTrace();
+		}
+
+System.out.println("Copy");
+		try {
+			for (Map.Entry<ClassInfo, String> pair : sourceInfo.getOriginalSource().entrySet()) {
+				ClassInfo ci = pair.getKey();
+				String program = pair.getValue();
+				String pathToFile = ci.pathToJavaFile();
+
+				BufferedWriter bw = new BufferedWriter(new FileWriter(Configuration.sourceDir
+					+ File.separatorChar + pathToFile));
+				bw.write(program);
+				bw.flush();
+				bw.close();
+			}
+		} catch(IOException e) {
+			e.printStackTrace();
+		}
+System.out.println("Copying");
+		List<Pair<ClassInfo, String>> sourceBuffers = this.computeSourceBuffers();
+		if(sourceBuffers == null) {
+			return;
+		}
+
+		String origSrcName = Configuration.outputDir + File.separatorChar
+			+ "original" + File.separatorChar;
+
+		try {
+			for(Pair<ClassInfo, String> ele : sourceBuffers) {
+				ClassInfo ci = ele.getLeft();
+				String pathToFile = ci.pathToJavaFile();
+				FileUtils.copyFile(new File(origSrcName + pathToFile), new File(Configuration.sourceDir + File.separatorChar + pathToFile));
+System.out.println("Copy Done to " + Configuration.sourceDir + File.separatorChar + pathToFile);
+			}
+		} catch(IOException e) {
+			e.printStackTrace();
+		}
+*/
+	
+	}
+
+	@Override
 	public void outputSource(String filename) {
-		// TODO Auto-generated method stub
+		List<Pair<ClassInfo, String>> sourceBuffers = this.computeSourceBuffers();
+		if (sourceBuffers == null) {
+			return;
+		}
+
+		String origSrcName = Configuration.outputDir + File.separatorChar 
+				+ "original" + File.separatorChar ;
+
+		File mutDir = new File(filename);
+		if (!mutDir.exists()){
+			mutDir.mkdir();
+		}
+
+		try {
+			for (Pair<ClassInfo, String> ele : sourceBuffers) {
+				ClassInfo ci = ele.getLeft();
+				String program = ele.getRight();
+				String pathToFile = ci.pathToJavaFile();
+
+				createPathFiles(filename, pathToFile);
+
+				BufferedWriter bw = new BufferedWriter(new FileWriter(
+						filename + File.separatorChar + pathToFile));
+				bw.write(program);
+				bw.flush();
+
+				bw.close();
+
+				Process diffProcess = Runtime.getRuntime().exec("diff " + origSrcName + File.separatorChar 
+						+ pathToFile + " " + filename + File.separatorChar + pathToFile);
+
+				bw = new BufferedWriter(new FileWriter(filename + File.separatorChar 
+						+ pathToFile + ".diff"));
+				IOUtils.copy(diffProcess.getInputStream(), bw);
+
+				bw.close();
+			}
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+		}
 
 	}
 
@@ -411,6 +535,9 @@ CachingRepresentation<JavaEditOperation> {
 		String outDirName = Configuration.outputDir + File.separatorChar
 				+ exeName + File.separatorChar ;
 
+		String origSrcName = Configuration.outputDir + File.separatorChar 
+				+ "original" + File.separatorChar ;
+
 		File sanRepDir = new File(Configuration.outputDir + File.separatorChar+ exeName);
 		if (!sanRepDir.exists()){
 			sanRepDir.mkdir();
@@ -436,6 +563,16 @@ CachingRepresentation<JavaEditOperation> {
 				bw.flush();
 
 				bw.close();
+
+				Process diffProcess = Runtime.getRuntime().exec("diff " + origSrcName + File.separatorChar 
+						+ pathToFile + " " + outDirName + File.separatorChar + pathToFile);
+
+				bw = new BufferedWriter(new FileWriter(outDirName + File.separatorChar 
+						+ pathToFile + ".diff"));
+				IOUtils.copy(diffProcess.getInputStream(), bw);
+
+				bw.close();
+
 				if(Configuration.compileCommand != "") {
 					String path = 
 							Configuration.workingDir+ File.separatorChar + Configuration.sourceDir+ File.separatorChar + pathToFile; 

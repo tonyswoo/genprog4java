@@ -108,6 +108,14 @@ Representation<G>  {
 
 	private Pair<Boolean, String> alreadyCompiled = null;
 
+	public boolean compileFailed() {
+		return !alreadyCompiled.getLeft();
+	}
+
+	public String getExeName() {
+		return alreadyCompiled.getRight();
+	}
+
 	public boolean getVariableLength() {
 		return true;
 	}
@@ -135,7 +143,7 @@ Representation<G>  {
 	public boolean sanityCheck() {
 		long startTime = System.currentTimeMillis();
 
-		this.outputSource(CachingRepresentation.sanityFilename);
+		//this.outputSource(CachingRepresentation.sanityFilename);
 		logger.info("sanity checking begins");
 		if (!this.compile(CachingRepresentation.sanityFilename,
 				CachingRepresentation.sanityExename)) {
