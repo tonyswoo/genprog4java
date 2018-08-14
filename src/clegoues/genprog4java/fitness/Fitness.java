@@ -175,6 +175,14 @@ public class Fitness {
 				}
 			}).build();
 
+	//public static boolean useEntropy = false;
+	public static boolean useEntropy = ConfigurationBuilder.of( BOOL_ARG )
+			.withVarName( "useEntropy" )
+			.withDefault( "false" )
+			.withHelp( "whether entropy should be incorporated into fitness score " )
+			.inGroup( "Fitness Parameters" )
+			.build();
+
 
 
 	/** this is necessary because of the generational sample strategy, which
@@ -592,8 +600,7 @@ public class Fitness {
 
 		double avgEntropy = 0;
 
-		/*
-		if(rep.getVariantFolder().length() != 0) {
+		if(useEntropy && rep.getVariantFolder().length() != 0) {
 			try {
 				rep.rewriteOriginal();
 				avgEntropy = processVariant(new File(Configuration.outputDir + "/" + rep.getVariantFolder()), new File(Configuration.sourceDir), lexerRunner, runner);
@@ -601,7 +608,6 @@ public class Fitness {
 				e.printStackTrace();
 			}
 		}
-		*/
 
 		double sampleFitness = fac * numNegPassed + numPosPassed + (1 - avgEntropy / 1000);
 		double totalFitness = sampleFitness + numRestPassed;
@@ -653,8 +659,7 @@ public class Fitness {
 
 		double avgEntropy = 0;
 
-		/*
-		if(rep.getVariantFolder().length() != 0) {
+		if(useEntropy && rep.getVariantFolder().length() != 0) {
 			try {
 				rep.rewriteOriginal();
 				avgEntropy = processVariant(new File(Configuration.outputDir + "/" + rep.getVariantFolder()), new File(Configuration.sourceDir), lexerRunner, runner);
@@ -662,7 +667,6 @@ public class Fitness {
 				e.printStackTrace();
 			}
 		}
-		*/
 
 		fitness += 1 - avgEntropy / 1000;
 		
