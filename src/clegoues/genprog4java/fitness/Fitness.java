@@ -833,7 +833,7 @@ public class Fitness {
 				for (int i = 0; i < numLinesAdd; i++) {
 					String toAdd = diff.get(offset + i);
 					afterUpdate.add(start + i, toAdd.substring(1));
-					added.add(startFinal + i);
+					added.add(i, startFinal + i);
 				}
 			}
 			cIx--;
