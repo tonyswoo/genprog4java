@@ -792,52 +792,51 @@ public class Fitness {
 				LexerRunner lexerRunner, ModelRunner runner) {
 		List<String> afterUpdate = new ArrayList<>(original);
 		List<Integer> added = new ArrayList<>();
-		int cIx = 0;
-		int lineNumChange = 0; // denotes the change in line indices due to edit operation
-		while (cIx < diff.size()) {
+		int cIx = diff.size() - 1;
+		while (cIx >= 0) {
 			String diffIndicator = diff.get(cIx);
-			int startDel, endDel, startAdd, endAdd;
+			while(diffIndicator.length() == 0 || diffIndicator.charAt(0) == '\n' || diffIndicator.charAt(0) == '-'
+				|| diffIndicator.charAt(0) == '<' || diffIndicator.charAt(0) == '>')
+				diffIndicator = diff.get(--cIx);
+
+			int start, startFinal, numLinesDel, numLinesAdd;
 			if (diffIndicator.contains("d")) {
 				String indices = diffIndicator.split("d")[0];
-				startDel = Integer.parseInt(indices.contains(",") ? indices.split(",")[0] : indices) + lineNumChange - 1;
-				endDel = Integer.parseInt(indices.contains(",") ? indices.split(",")[1] : indices) + lineNumChange - 1;
-				lineNumChange -= endDel - startDel + 1;
-				startAdd = endAdd = -1;
+				start = Integer.parseInt(indices.contains(",") ? indices.split(",")[0] : indices) - 1;
+				numLinesDel = Integer.parseInt(indices.contains(",") ? indices.split(",")[1] : indices) - start;
+				startFinal = numLinesAdd = -1;
 			}
 			else if (diffIndicator.contains("a")) {
 				String indices = diffIndicator.split("a")[1];
-				startAdd = Integer.parseInt(indices.contains(",") ? indices.split(",")[0] : indices) + lineNumChange - 1;
-				endAdd = Integer.parseInt(indices.contains(",") ? indices.split(",")[1] : indices) + lineNumChange - 1;
-				lineNumChange += endAdd - startAdd + 1;
-				startDel = endDel = -1;
+				startFinal = Integer.parseInt(indices.contains(",") ? indices.split(",")[0] : indices) - 1;
+				numLinesAdd = Integer.parseInt(indices.contains(",") ? indices.split(",")[1] : indices) - startFinal;
+				start = Integer.parseInt(diffIndicator.split("a")[0]);
+				numLinesDel = -1;
 			}
 			else {
 				String[] indices = diffIndicator.split("c");
 				// Get diff indices -- note the "- 1" at the end for proper list offsets!
-				startDel = Integer.parseInt(indices[0].contains(",") ? indices[0].split(",")[0] : indices[0]) + lineNumChange - 1;
-				endDel = Integer.parseInt(indices[0].contains(",") ? indices[0].split(",")[1] : indices[0]) + lineNumChange - 1;
-				startAdd = Integer.parseInt(indices[1].contains(",") ? indices[1].split(",")[0] : indices[1]) - 1;
-				endAdd = Integer.parseInt(indices[1].contains(",") ? indices[1].split(",")[1] : indices[1]) - 1;
-				lineNumChange += endAdd - startAdd - (endDel - startDel);
+				startFinal = Integer.parseInt(indices[1].contains(",") ? indices[1].split(",")[0] : indices[1]) - 1;
+				numLinesAdd = Integer.parseInt(indices[1].contains(",") ? indices[1].split(",")[1] : indices[1]) - startFinal;
+				start = Integer.parseInt(indices[0].contains(",") ? indices[0].split(",")[0] : indices[0]) - 1;
+				numLinesDel = Integer.parseInt(indices[0].contains(",") ? indices[0].split(",")[1] : indices[0]) - start;
 			}
 			int offset = cIx + 1;
-			if (startDel >= 0) {
-				for (int i = 0; i < endDel - startDel + 1; i++) {
-					afterUpdate.remove(startDel);
+			if (numLinesDel >= 0) {
+				for (int i = 0; i < numLinesDel; i++) {
+					afterUpdate.remove(start);
 				}
-				offset += endDel - startDel + 1;
+				offset += numLinesDel;
 			}
-			if (startAdd >= 0) {
-				if (startDel >= 0) offset += 1;
-				for (int i = 0; i < endAdd - startAdd + 1; i++) {
+			if (numLinesAdd >= 0) {
+				if (numLinesDel >= 0) offset += 1;
+				for (int i = 0; i < numLinesAdd; i++) {
 					String toAdd = diff.get(offset + i);
-					afterUpdate.add(startAdd + i, toAdd.substring(1));
-					added.add(startAdd + i);
+					afterUpdate.add(start + i, toAdd.substring(1));
+					added.add(startFinal + i);
 				}
-				offset += endAdd - startAdd + 1;
 			}
-			cIx = offset;
-	
+			cIx--;
 		}
 		// Run model on modified tokens and compute entropy of effective diff
 		runner.getModel().notify(null);
