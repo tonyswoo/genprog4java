@@ -630,7 +630,7 @@ public class ConfigurationBuilder< T > {
 			if ( options.getOption( key ).hasArg() ) {
 				value = newProps.getProperty( key );
 			} else if ( newProps.getProperty( key ) != null ) {
-				value = "true";
+				value = newProps.getProperty( key );
 				newProps.setProperty( key, value );
 			}
 			if ( value != null ) {

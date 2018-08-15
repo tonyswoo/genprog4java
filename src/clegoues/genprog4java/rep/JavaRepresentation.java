@@ -501,7 +501,7 @@ System.out.println("Copy Done to " + Configuration.sourceDir + File.separatorCha
 					+ "=excludes=org.junit.*,append=false");
 		} else {
 			command.addArgument("-Xms128m");
-			command.addArgument("-Xmx256m");
+			command.addArgument("-Xmx1024m");
 			command.addArgument("-client");
 		}
 

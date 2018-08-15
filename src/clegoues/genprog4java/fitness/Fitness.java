@@ -176,7 +176,7 @@ public class Fitness {
 			}).build();
 
 	//public static boolean useEntropy = false;
-	public static boolean useEntropy = ConfigurationBuilder.of( BOOL_ARG )
+	public static boolean useEntropy = ConfigurationBuilder.of( BOOLEAN )
 			.withVarName( "useEntropy" )
 			.withDefault( "false" )
 			.withHelp( "whether entropy should be incorporated into fitness score " )
@@ -609,7 +609,9 @@ public class Fitness {
 			}
 		}
 
-		double sampleFitness = fac * numNegPassed + numPosPassed + (1 - avgEntropy / 1000);
+		double sampleFitness = fac * numNegPassed + numPosPassed;
+		if(useEntropy && rep.getVariantFolder().length() != 0)
+			sampleFitness += (1 - avgEntropy / 1000);
 		double totalFitness = sampleFitness + numRestPassed;
 
 		if(rep.getVariantFolder().length() != 0) {
@@ -666,9 +668,8 @@ public class Fitness {
 			} catch (IOException e) {
 				e.printStackTrace();
 			}
+			fitness += 1 - avgEntropy / 1000;
 		}
-
-		fitness += 1 - avgEntropy / 1000;
 		
 		if(rep.getVariantFolder().length() != 0) {
 			try {
